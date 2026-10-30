@@ -260,7 +260,7 @@ export default {
       if (role === 'agent' && Number(prop.agent_id) !== me) return J({ error: 'Forbidden' }, 403);
       if (action && !WRITE_ROLES.has(role)) return J({ error: 'Forbidden' }, 403);
       if (!action && method === 'GET') {
-        const images = await env.DB.prepare('SELECT * FROM property_images WHERE property_id = ? ORDER BY position').bind(id).all();
+        const images = await env.DB.prepare('SELECT * FROM property_images WHERE property_id = ? AND deleted_at IS NULL ORDER BY position').bind(id).all();
         return J({ property: role === 'agent' ? publicProperty(prop) : prop, images: images.results });
       }
       if (!action && method === 'PATCH') {

@@ -17,7 +17,7 @@ export function normalizeDetails(b) {
   if (b.area_sqft != null) b.area_sqm = b.area_sqft / SQFT_PER_SQM;
   else if (b.area_sqm != null) b.area_sqft = b.area_sqm * SQFT_PER_SQM;
   if (b.map_url) {
-    const u = new URL(b.map_url);
+    let u; try { u = new URL(b.map_url); } catch { throw new Error('Use a valid HTTPS Google Maps link'); }
     if (u.protocol !== 'https:' || !(['maps.google.com','maps.app.goo.gl','goo.gl'].includes(u.hostname) || (['www.google.com','google.com'].includes(u.hostname) && u.pathname.startsWith('/maps')))) throw new Error('Use a valid HTTPS Google Maps link');
   }
   for (const k of ['map_url','nearby_supermarkets','nearby_facilities','floor']) if (b[k] != null && (typeof b[k] !== 'string' || b[k].length > 2000)) throw new Error(`Invalid ${k}`);
