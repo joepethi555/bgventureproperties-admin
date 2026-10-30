@@ -81,11 +81,18 @@ export default {
       if ((origin && origin !== url.origin) || req.headers.get('sec-fetch-site') === 'cross-site') return json({ error: 'Cross-site request rejected' }, 403);
     }
 
+    // CORS preflight for public read-only and analytics endpoints
+    if (method === 'OPTIONS' && (path.startsWith('/api/public/') || path === '/api/analytics/events')) {
+      return new Response(null, { status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' } });
+    }
+
     // Security headers
     const H = {
       'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY',
       'referrer-policy': 'strict-origin-when-cross-origin',
     };
+    // Public GET/ingest responses are readable cross-origin (no credentials involved)
+    const PUB = { 'access-control-allow-origin': '*' };
     const J = (d: unknown, s = 200, h: HeadersInit = {}) => json(d, s, { ...H, ...h });
 
     // ── public pages: serve admin SPA shell ──
@@ -147,7 +154,7 @@ export default {
         String(b.utm_campaign || '').slice(0, 100) || null,
         device, (req as Request & { cf?: { country?: string } }).cf?.country || null
       ).run();
-      return J({ ok: true }, 202);
+      return J({ ok: true }, 202, PUB);
     }
 
     // ── PUBLIC properties API (published only, public fields only) ──
@@ -168,14 +175,49 @@ export default {
                 (SELECT i.id FROM property_images i WHERE i.property_id=properties.id AND i.approved=1 AND i.deleted_at IS NULL ORDER BY i.is_main DESC,i.position,i.id LIMIT 1) cover_image_id
          FROM properties WHERE ${cond.join(' AND ')} ORDER BY featured DESC, id DESC LIMIT 100`
       ).bind(...args).all();
-      return J({ properties: rows.results });
+      return J({ properties: rows.results }, 200, PUB);
     }
 
     const publicImage = path.match(/^\/api\/public\/properties\/(\d+)\/media\/(\d+)$/);
     if (publicImage && method === 'GET') {
       const image = await env.DB.prepare("SELECT i.* FROM property_images i JOIN properties p ON p.id=i.property_id WHERE p.id=? AND i.id=? AND p.status='published' AND p.availability='available' AND i.approved=1 AND i.deleted_at IS NULL").bind(Number(publicImage[1]), Number(publicImage[2])).first();
       if (!image) return J({ error: 'Not found' }, 404);
-      return imageResponse(env, image);
+      const r = await imageResponse(env, image);
+      r.headers.set('access-control-allow-origin', '*');
+      r.headers.set('cache-control', 'public, max-age=3600');
+      return r;
+    }
+
+    const publicDetail = path.match(/^\/api\/public\/properties\/(\d+)$/);
+    if (publicDetail && method === 'GET') {
+      const prop = await env.DB.prepare(
+        `SELECT id, ref, slug, title, description, short_description, listing_type, category, property_type,
+                community, subcommunity, city, emirate, building, bedrooms, bathrooms, area_sqft, area_sqm,
+                furnishing, parking, balcony, view_type, currency, sale_price, annual_rent, monthly_rent,
+                featured, completion, developer, project_name, seo_title, seo_description, details_json, updated_at
+         FROM properties WHERE id = ? AND status = 'published' AND availability = 'available'`
+      ).bind(Number(publicDetail[1])).first<Record<string, unknown>>();
+      if (!prop) return J({ error: 'Not found' }, 404, PUB);
+      const images = await env.DB.prepare(
+        `SELECT id, caption, alt_text, image_category, width, height, is_main, position
+         FROM property_images WHERE property_id = ? AND approved = 1 AND deleted_at IS NULL ORDER BY is_main DESC, position, id`
+      ).bind(Number(publicDetail[1])).all();
+      let details: Record<string, unknown> = {};
+      try { details = JSON.parse(String(prop.details_json || '{}')); } catch { details = {}; }
+      const places = Array.isArray(details.nearby_places) ? (details.nearby_places as Record<string, unknown>[]).filter(pl => pl.verified === true && pl.public === true) : [];
+      delete prop.details_json;
+      return J({
+        property: prop,
+        images: images.results,
+        details: {
+          map_url: details.map_url ?? null,
+          amenities: details.amenities ?? [],
+          measurements: details.measurements ?? [],
+          nearby_supermarkets: details.nearby_supermarkets ?? null,
+          nearby_facilities: details.nearby_facilities ?? null,
+          nearby_places: places,
+        },
+      }, 200, PUB);
     }
 
     // ── everything below requires session ──

@@ -1,11 +1,15 @@
-export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 export function inspectImage(bytes) {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let width, height, mime, extension;
   if (bytes.length >= 33 && [137,80,78,71,13,10,26,10].every((n,i)=>bytes[i]===n) && v.getUint32(8)===13 && String.fromCharCode(...bytes.slice(12,16))==='IHDR') {
     width=v.getUint32(16);height=v.getUint32(20);mime='image/png';extension='png';
     if (String.fromCharCode(...bytes.slice(-8,-4))!=='IEND') throw new Error('Incomplete PNG');
-  } else if (bytes.length>=4 && bytes[0]===255 && bytes[1]===216 && bytes.at(-2)===255 && bytes.at(-1)===217) {
+  } else if (bytes.length>=4 && bytes[0]===255 && bytes[1]===216) {
+    // Require the EOI marker, but tolerate app-level trailers appended after it
+    // (some export tools write metadata past FF D9).
+    let eoi=false;for(let i=bytes.length-2;i>=Math.max(0,bytes.length-65536);i--){if(bytes[i]===255&&bytes[i+1]===217){eoi=true;break}}
+    if(!eoi)throw new Error('Incomplete JPEG');
     let offset=2;
     while(offset+4<=bytes.length){
       if(bytes[offset++]!==255)throw new Error('Invalid JPEG marker');
@@ -22,10 +26,10 @@ export function inspectImage(bytes) {
   return {width,height,mime,extension};
 }
 export async function readImageBody(request) {
-  if(Number(request.headers.get('content-length'))>MAX_IMAGE_BYTES)throw new Error('Maximum image size is 10 MB');
+  if(Number(request.headers.get('content-length'))>MAX_IMAGE_BYTES)throw new Error('Maximum image size is 16 MB');
   if(!request.body)throw new Error('Image required');
   const reader=request.body.getReader();const chunks=[];let size=0;
-  while(true){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>MAX_IMAGE_BYTES){await reader.cancel();throw new Error('Maximum image size is 10 MB')}chunks.push(r.value)}
+  while(true){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>MAX_IMAGE_BYTES){await reader.cancel();throw new Error('Maximum image size is 16 MB')}chunks.push(r.value)}
   const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length}return bytes;
 }
 export async function handleMedia(req,env,session,propertyId,imageId,json) {

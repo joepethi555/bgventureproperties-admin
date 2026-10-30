@@ -127,7 +127,7 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
             <div class="amenity-options" id="amenityOptions"></div>
           </fieldset>
           <fieldset class="property-section"><legend>Property photographs</legend>
-            <p>JPEG or PNG, up to 10 MB each. Selected photos upload privately when the property is saved; they become public only after approval and publication.</p>
+            <p>JPEG or PNG, up to 16 MB each. Selected photos upload privately when the property is saved; they become public only after approval and publication.</p>
             <div id="propMediaDrop" style="padding:20px;border:2px dashed var(--line);border-radius:10px;margin-bottom:12px">
               <label style="margin:0">Choose photographs or drop them here<input type="file" id="propMediaFiles" accept="image/jpeg,image/png" multiple style="margin-top:8px"></label>
             </div>
@@ -140,7 +140,7 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
     </section>
     <section class="view" id="v-media">
       <h3>Property photographs</h3>
-      <p>JPEG or PNG, up to 10 MB each. Uploads stay private until a publisher approves the image and publishes the property.</p>
+      <p>JPEG or PNG, up to 16 MB each. Uploads stay private until a publisher approves the image and publishes the property.</p>
       <div id="mediaDrop" style="padding:24px;border:2px dashed var(--line);border-radius:12px;margin:18px 0">
         <label>Choose photographs or drop them here<input type="file" id="mediaFiles" accept="image/jpeg,image/png" multiple></label>
       </div>
@@ -201,7 +201,7 @@ $('#useCandace').onclick=()=>{
 };
 let pendingMedia=[];
 function renderPending(){const box=$('#propMediaPending');box.replaceChildren();for(const [i,item] of pendingMedia.entries()){const row=document.createElement('p');row.style.cssText='font-size:12px;margin:4px 0';row.textContent=item.file.name+' ('+Math.round(item.file.size/1024)+' KB)'+(item.error?' — '+item.error:'');const rm=document.createElement('button');rm.type='button';rm.className='btn-sm ghost';rm.textContent='Remove';rm.style.marginLeft='8px';rm.onclick=()=>{pendingMedia.splice(i,1);renderPending()};row.append(rm);box.append(row)}}
-function addPending(files){for(const file of files){pendingMedia.push({file,error:file.size>10*1024*1024||!['image/jpeg','image/png'].includes(file.type)?'choose a JPEG or PNG under 10 MB':null})}renderPending()}
+function addPending(files){for(const file of files){pendingMedia.push({file,error:file.size>16*1024*1024||!['image/jpeg','image/png'].includes(file.type)?'choose a JPEG or PNG under 16 MB':null})}renderPending()}
 $('#propMediaFiles').onchange=e=>{addPending(e.target.files);e.target.value=''};
 const propDrop=$('#propMediaDrop');propDrop.ondragover=e=>e.preventDefault();propDrop.ondrop=e=>{e.preventDefault();addPending(e.dataTransfer.files)};
 for(const unit of ['sqft','sqm'])propertyForm.elements['area_'+unit].oninput=e=>{const value=e.target.value;originalArea=value===''?null:{unit,value:Number(value)};propertyForm.elements['area_'+(unit==='sqft'?'sqm':'sqft')].value=value===''?'':Number((unit==='sqft'?Number(value)/10.7639104167:Number(value)*10.7639104167).toFixed(6))};
