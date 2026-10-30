@@ -12,7 +12,7 @@ directory = "./admin"
 [[d1_databases]]
 binding = "DB"
 database_name = "bgv-admin"
-database_id = "REPLACE_WITH_D1_ID"   # run: npx wrangler d1 create bgv-admin
+database_id = "f3f7bb78-d330-4057-ac0a-c93c38113296"
 
 # [[r2_buckets]]
 # binding = "MEDIA"
