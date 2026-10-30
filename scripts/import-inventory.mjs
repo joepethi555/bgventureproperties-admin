@@ -108,12 +108,17 @@ for (const p of plan) {
     const r = await api('/admin/properties', 'POST', p.info);
     id = r.id; console.log(`created #${id} ${p.info.title}`);
   } else console.log(`exists #${id} ${p.info.title}`);
-  const have = (await api(`/admin/properties/${id}/media`)).images.length;
+  const media = (await api(`/admin/properties/${id}/media`)).images;
+  const have = media.length;
+  const hashes = new Set(media.map(m => m.sha256).filter(Boolean));
   if (have > 0 && !process.argv.includes('--reupload')) { console.log(`  already has ${have} image(s) — skipping uploads`); continue; }
-  let ok = 0, fail = 0;
+  let ok = 0, fail = 0, dup = 0;
   for (const f of p.photos) {
     try {
-      const buf = readFileSync(f);
+      const buf0 = readFileSync(f);
+      const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf0))].map(n => n.toString(16).padStart(2, '0')).join('');
+      if (hashes.has(hash)) { dup++; continue; }
+      const buf = buf0;
       const r = await fetch(`${API}/api/admin/properties/${id}/media`, {
         method: 'POST',
         headers: { cookie: cookie.v, 'content-type': extname(f).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg', 'x-filename': basename(f).replace(/[^a-zA-Z0-9_. -]/g, '_') },
@@ -122,7 +127,7 @@ for (const p of plan) {
       if (r.ok) ok++; else { fail++; console.log(`  FAIL ${basename(f)}: ${(await r.json().catch(() => ({}))).error || r.status}`); }
     } catch (e) { fail++; console.log(`  FAIL ${basename(f)}: ${e.message}`); }
   }
-  console.log(`  uploaded ${ok}, failed ${fail}`);
+  console.log(`  uploaded ${ok}, duplicates ${dup}, failed ${fail}`);
 }
 console.log('Done.');
 

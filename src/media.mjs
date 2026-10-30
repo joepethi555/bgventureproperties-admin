@@ -40,7 +40,7 @@ export async function handleMedia(req,env,session,propertyId,imageId,json) {
   if(!property)return json({error:'Not found'},404);
   if(role==='agent'&&Number(property.agent_id)!==userId)return json({error:'Forbidden'},403);
   const base='/api/admin/properties/'+propertyId+'/media';
-  if(req.method==='GET'&&!imageId){const rows=await env.DB.prepare('SELECT id,caption,alt_text,is_main,position,original_filename,mime_type,file_size,width,height,image_category,approved,created_at FROM property_images WHERE property_id=? AND deleted_at IS NULL ORDER BY position,id').bind(propertyId).all();return json({images:rows.results})}
+  if(req.method==='GET'&&!imageId){const rows=await env.DB.prepare('SELECT id,caption,alt_text,is_main,position,original_filename,mime_type,file_size,width,height,image_category,approved,created_at,sha256 FROM property_images WHERE property_id=? AND deleted_at IS NULL ORDER BY position,id').bind(propertyId).all();return json({images:rows.results})}
   if(req.method==='PATCH'&&!imageId){
     const b=await req.json().catch(()=>null);const ids=b?.order;
     if(!Array.isArray(ids)||ids.length>500||ids.some(id=>!Number.isSafeInteger(id))||new Set(ids).size!==ids.length)return json({error:'Invalid image order'},400);
