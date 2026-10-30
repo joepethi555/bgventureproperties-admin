@@ -35,6 +35,46 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
 #formView h3{font:18px Georgia,serif;margin-bottom:18px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
 .view{display:none}.view.on{display:block}
 .property-section{border:1px solid var(--line);border-radius:10px;padding:20px;margin:22px 0;min-width:0}.property-section legend{padding:0 8px;font:18px Georgia,serif}.property-section p{color:var(--muted);font-size:12px;margin-bottom:16px}.property-section label{display:block;font-size:12px;font-weight:600;min-width:0}.property-section input,.property-section select,.property-section textarea{margin-top:6px;font-weight:400}.amenity-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}.amenity-options label{display:flex;align-items:center;gap:8px}.amenity-options input{width:auto;margin:0}
+/* Listings table (Property Finder–style) */
+.prop-tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.prop-tabs button{background:#fff;border:1px solid var(--line);color:var(--muted);font-weight:600;padding:8px 16px;font-size:11px;border-radius:8px}
+.prop-tabs button.on{background:var(--dark);color:#fff;border-color:var(--dark)}
+.prop-toolbar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.prop-toolbar input{flex:1;min-width:200px;margin:0}
+.prop-toolbar select{width:auto;margin:0}
+.prop-toolbar button{margin:0}
+#ptable{overflow-x:auto}
+.listing-table td{vertical-align:middle}
+.p-cell{display:flex;gap:12px;align-items:center;min-width:260px}
+.p-thumb{width:56px;height:42px;object-fit:cover;border-radius:6px;flex:none}
+.p-thumb-empty{display:inline-block;background:#ecebe6}
+.p-title{font-weight:600;font-size:13px;color:var(--ink);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+.p-title:hover{color:var(--gold-dark)}
+.p-sub{font-size:10px;color:var(--muted);line-height:1.5}
+.p-price{font-weight:700;white-space:nowrap;font-size:13px}
+.p-price small{color:var(--muted);font-weight:400}
+.pill{display:inline-block;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px}
+.pill-published{background:#e2f3e6;color:#237a3c}
+.pill-draft{background:#f0f0f0;color:#666}
+.pill-pending{background:#fdf3d7;color:#8a6a14}
+.pill-archived{background:#fde8e8;color:#9c3434}
+.furn{display:inline-block;background:#f1efe9;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:600;color:#6d6552}
+.agent{display:flex;align-items:center;gap:8px}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--dark);color:var(--gold);display:inline-grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.agent-name{font-size:12px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.kebab{position:relative}
+.kebab summary{list-style:none;cursor:pointer;padding:4px 10px;border-radius:6px;font-size:16px;color:var(--muted);text-align:center;user-select:none}
+.kebab summary::-webkit-details-marker{display:none}
+.kebab summary:hover{background:#f0efe9;color:var(--ink)}
+.kebab-menu{position:absolute;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 14px 40px #0002;min-width:170px;padding:6px;display:flex;flex-direction:column}
+.kebab-menu button{background:none;border:0;text-align:left;padding:9px 12px;font-size:12px;font-weight:550;letter-spacing:0;border-radius:6px;color:var(--ink)}
+.kebab-menu button:hover{background:#f6f4ee}
+.prop-pager{display:flex;align-items:center;gap:18px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.pager-info{font-size:11px;color:var(--muted)}
+.pager-size{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.pager-size select{width:auto;margin:0;padding:4px 8px}
+.pager-btns{display:flex;gap:4px}
+.pager-btns button{padding:6px 12px;font-size:11px;min-width:32px}
 @media(max-width:560px){.grid2,.amenity-options{grid-template-columns:minmax(0,1fr)}#formView{padding:18px}.property-section{padding:14px}}
 @media(max-width:800px){.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:10px}.sidebar img{width:50px;margin:0 10px}.sidebar .foot{display:none}.main{margin-left:0;padding:16px}}
 </style>
@@ -66,8 +106,22 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
     <div class="topbar"><h2 id="vtitle">Dashboard</h2><span id="uname" style="font-size:12px;color:var(--muted)"></span></div>
     <section class="view on" id="v-dash"><div class="cards" id="cards"></div></section>
     <section class="view" id="v-props">
-      <input id="pq" placeholder="Search title, ref, community…" style="max-width:340px;margin-bottom:16px">
+      <div class="prop-tabs" id="propTabs">
+        <button type="button" data-st="" class="on">All Listings</button>
+        <button type="button" data-st="draft">Draft</button>
+        <button type="button" data-st="pending">Pending</button>
+        <button type="button" data-st="published">Live</button>
+        <button type="button" data-st="archived">Archived</button>
+      </div>
+      <div class="prop-toolbar">
+        <input id="pq" placeholder="Enter property reference, title, community…">
+        <select id="pfCategory"><option value="">All Categories</option><option>Residential</option><option>Commercial</option><option>Other</option></select>
+        <select id="pfPurpose"><option value="">All Purposes</option><option value="sale">For Sale</option><option value="rent">For Rent</option><option value="off_plan">Off-Plan</option></select>
+        <select id="pfAgent" style="display:none"><option value="">All Agents</option></select>
+        <button type="button" class="ghost" id="propReload">Reload</button>
+      </div>
       <div id="ptable"></div>
+      <div class="prop-pager" id="ppager"></div>
     </section>
     <section class="view" id="v-newprop">
       <form id="propForm">
@@ -160,11 +214,43 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function err(m){const e=$('#err');e.textContent=m;e.style.display='block'}
 $('#loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/auth/login','POST',{email:$('#email').value,password:$('#password').value});ME=d.user;show()}catch(x){err(x.message)}};
 $('#logout').onclick=async e=>{e.preventDefault();await api('/auth/logout','POST').catch(()=>{});location.reload()};
-function show(){$('#loginView').style.display='none';$('#app').style.display='block';$('#uname').textContent=ME.email;$('#who').textContent=ME.name+' · '+ME.role;if(ME.role==='super_admin')$('#navUsers').style.display='block';dash();props();pan();inq();users()}
+function show(){$('#loginView').style.display='none';$('#app').style.display='block';$('#uname').textContent=ME.email;$('#who').textContent=ME.name+' · '+ME.role;if(ME.role==='super_admin')$('#navUsers').style.display='block';dash();props();pan();inq();users();loadAgents()}
 document.querySelectorAll('.sidebar a[data-v]').forEach(a=>a.onclick=e=>{e.preventDefault();document.querySelectorAll('.sidebar a').forEach(x=>x.classList.remove('on'));a.classList.add('on');document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));$('#v-'+a.dataset.v).classList.add('on');$('#vtitle').textContent=a.textContent});
 async function dash(){const d=await api('/admin/analytics/overview');const i=d.inventory||{},a=d.analytics||{};$('#cards').innerHTML=[['Total properties',i.total],['Published',i.published],['Drafts',i.drafts],['For sale',i.for_sale],['For rent',i.for_rent],['Available',i.available],['Archived',i.archived],['Page views ('+d.period_days+'d)',a.page_views],['Property views',a.property_views],['WhatsApp clicks',a.whatsapp],['Phone clicks',a.phone],['Form submissions',a.inquiries]].map(([k,v])=>`<div class="card"><span>${k}</span><strong>${v??0}</strong></div>`).join('')}
-async function props(){const q=$('#pq').value;const d=await api('/admin/properties'+(q?'?q='+encodeURIComponent(q):''));$('#ptable').innerHTML=`<table><tr><th>Ref</th><th>Title</th><th>Type</th><th>Community</th><th>Price</th><th>Status</th><th>Actions</th></tr>${d.properties.map(p=>`<tr><td>${esc(p.ref)}</td><td>${esc(p.title)}</td><td>${esc(p.listing_type)}</td><td>${esc(p.community)||'—'}</td><td>${p.sale_price||p.annual_rent||'—'}</td><td><span class="badge ${esc(p.status)}">${esc(p.status)}</span></td><td>${p.status!=='published'?`<button class="btn-sm" onclick="act(${p.id},'publish')">Publish</button>`:`<button class="btn-sm ghost" onclick="act(${p.id},'archive')">Archive</button>`}<button class="btn-sm ghost" onclick="editProperty(${p.id})">Edit</button><button class="btn-sm ghost" onclick="openMedia(${p.id})">Images</button><button class="btn-sm ghost" onclick="act(${p.id},'duplicate')">Duplicate</button></td></tr>`).join('')}</table>`}
-$('#pq').oninput=()=>{clearTimeout(window._t);window._t=setTimeout(props,300)};
+const pstate={page:1,size:20,status:'',category:'',listing_type:'',agent_id:'',q:''};
+const STATUS_LABEL={draft:'Draft',published:'Live',pending:'Pending',archived:'Archived'};
+const shortPrice=v=>v>=1e6?(v/1e6).toFixed(1).replace(/\.0$/,'')+'M':v>=1e3?Math.round(v/1e3)+'K':String(v);
+function priceLabel(p){const c=p.currency||'AED';if(p.listing_type==='rent'){const v=p.annual_rent||p.monthly_rent;return v?`${c} ${shortPrice(v)}<small>/ year</small>`:'—'}return p.sale_price?`${c} ${shortPrice(p.sale_price)}`:'—'}
+const purposeLabel=t=>({sale:'For Sale',rent:'For Rent',off_plan:'Off-Plan'})[t]||t;
+async function props(){
+ const q=new URLSearchParams();for(const[k,v]of Object.entries(pstate))if(v)q.set(k,v);
+ const d=await api('/admin/properties?'+q);
+ const pill=s=>`<span class="pill pill-${esc(s)}">${STATUS_LABEL[s]||esc(s)}</span>`;
+ $('#ptable').innerHTML=`<table class="listing-table"><thead><tr><th>Property</th><th>Status</th><th>Type</th><th>Furnishing</th><th>Location</th><th>Price</th><th>Agent</th><th></th></tr></thead><tbody>${
+  d.properties.map(p=>{const specs=[p.bedrooms?(p.bedrooms==='Studio'?'Studio':`${p.bedrooms} BR`):null,p.bathrooms?`${p.bathrooms} BA`:null,p.area_sqft?`${Number(p.area_sqft).toLocaleString('en-US')} sqft`:null].filter(Boolean).join(' • ');
+   const agent=p.agent_name?`<span class="agent"><span class="avatar">${esc(String(p.agent_name).trim()[0]||'?')}</span><span class="agent-name">${esc(p.agent_name)}</span></span>`:'—';
+   const menu=[['Edit listing',`editProperty(${p.id})`],['Manage images',`openMedia(${p.id})`],['Duplicate',`act(${p.id},'duplicate')`],p.status==='published'?['Unpublish → archive',`act(${p.id},'archive')`]:p.status==='archived'?['Restore to draft',`act(${p.id},'restore')`]:['Publish',`act(${p.id},'publish')`]].map(([l,f])=>`<button type="button" onclick="this.closest('details').removeAttribute('open');${f}">${l}</button>`).join('');
+   return `<tr><td><div class="p-cell">${p.cover_image_id?`<img class="p-thumb" src="/api/admin/properties/${p.id}/media/${p.cover_image_id}" alt="" loading="lazy">`:`<span class="p-thumb p-thumb-empty"></span>`}<div><a class="p-title" href="#" onclick="editProperty(${p.id});return false">${esc(p.title)}</a><div class="p-sub">Ref: ${esc(p.ref)}</div><div class="p-sub">${specs||'—'}</div></div></div></td>
+   <td>${pill(p.status)}</td>
+   <td><strong>${esc(p.property_type)}</strong><div class="p-sub">${esc(p.category)} • ${purposeLabel(p.listing_type)}</div></td>
+   <td>${p.furnishing?`<span class="furn">${esc(p.furnishing)}</span>`:'—'}</td>
+   <td><strong>${esc(p.building)||'—'}</strong><div class="p-sub">${esc(p.community)||''}</div></td>
+   <td class="p-price">${priceLabel(p)}${p.listing_type==='rent'?'':`<div class="p-sub">${purposeLabel(p.listing_type)}</div>`}</td>
+   <td>${agent}</td>
+   <td><details class="kebab"><summary>⋯</summary><div class="kebab-menu">${menu}</div></details></td></tr>`}).join('')}</tbody></table>`;
+ const pages=Math.max(1,Math.ceil(d.total/d.size)),start=d.total?(d.page-1)*d.size+1:0,end=Math.min(d.total,d.page*d.size);
+ const nums=[];const lo=Math.max(1,Math.min(d.page-2,pages-4));for(let i=lo;i<=Math.min(pages,lo+4);i++)nums.push(i);
+ $('#ppager').innerHTML=`<span class="pager-info">Showing ${start} to ${end} of ${d.total} items</span><label class="pager-size">Items per page: <select id="pSize">${[10,20,50].map(n=>`<option ${n===d.size?'selected':''}>${n}</option>`).join('')}</select></label><span class="pager-btns"><button class="ghost" ${d.page<=1?'disabled':''} onclick="goPage(${d.page-1})">‹</button>${nums.map(n=>`<button class="${n===d.page?'':'ghost'}" onclick="goPage(${n})">${n}</button>`).join('')}<button class="ghost" ${d.page>=pages?'disabled':''} onclick="goPage(${d.page+1})">›</button></span>`;
+ $('#pSize').onchange=e=>{pstate.size=Number(e.target.value);pstate.page=1;props()};
+}
+window.goPage=n=>{pstate.page=n;props()};
+$('#pq').oninput=()=>{clearTimeout(window._t);window._t=setTimeout(()=>{pstate.q=$('#pq').value;pstate.page=1;props()},300)};
+$('#pfCategory').onchange=e=>{pstate.category=e.target.value;pstate.page=1;props()};
+$('#pfPurpose').onchange=e=>{pstate.listing_type=e.target.value;pstate.page=1;props()};
+$('#pfAgent').onchange=e=>{pstate.agent_id=e.target.value;pstate.page=1;props()};
+$('#propReload').onclick=()=>props();
+document.querySelectorAll('#propTabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#propTabs button').forEach(x=>x.classList.remove('on'));b.classList.add('on');pstate.status=b.dataset.st;pstate.page=1;props()});
+async function loadAgents(){if(ME.role!=='super_admin')return;try{const d=await api('/admin/users');const s=$('#pfAgent');s.style.display='';for(const u of d.users){const o=document.createElement('option');o.value=u.id;o.textContent=u.name;s.append(o)}}catch{}}
 window.act=async(id,a)=>{try{await api('/admin/properties/'+id+'/'+a,'POST');props();dash()}catch(x){alert(x.message)}};
 const amenityNames=['Swimming Pool','Gym','Covered Parking','Balcony','Security','Concierge',"Children’s Play Area",'Central Air Conditioning','Built-In Wardrobes','Garden','Kitchen Appliances'];
 for(const name of amenityNames){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='amenities';input.value=name;label.append(input,document.createTextNode(name));$('#amenityOptions').append(label)}

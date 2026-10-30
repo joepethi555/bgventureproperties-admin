@@ -239,13 +239,17 @@ export default {
       if (p.get('min_price')) { cond.push('(sale_price >= ? OR annual_rent >= ?)'); args.push(Number(p.get('min_price')), Number(p.get('min_price'))); }
       if (p.get('max_price')) { cond.push('(sale_price <= ? OR annual_rent <= ?)'); args.push(Number(p.get('max_price')), Number(p.get('max_price'))); }
       if (p.get('bedrooms')) { cond.push('bedrooms = ?'); args.push(p.get('bedrooms')); }
-      if (p.get('q')) { cond.push('(title LIKE ? OR ref LIKE ? OR community LIKE ?)'); args.push(`%${p.get('q')}%`, `%${p.get('q')}%`, `%${p.get('q')}%`); }
+      if (p.get('agent_id') && role === 'super_admin') { cond.push('agent_id = ?'); args.push(Number(p.get('agent_id'))); }
+      if (p.get('q')) { cond.push('(title LIKE ? OR ref LIKE ? OR community LIKE ? OR building LIKE ?)'); args.push(`%${p.get('q')}%`, `%${p.get('q')}%`, `%${p.get('q')}%`, `%${p.get('q')}%`); }
       const page = Math.max(1, Number(p.get('page') || 1)); const size = Math.min(50, Number(p.get('size') || 20));
       const total = await env.DB.prepare(`SELECT COUNT(*) c FROM properties WHERE ${cond.join(' AND ')}`).bind(...args).first<{ c: number }>();
       const rows = await env.DB.prepare(
-        `SELECT id, ref, title, listing_type, category, property_type, community, building, city,
+        `SELECT properties.id, ref, title, listing_type, category, property_type, community, building, city,
                 sale_price, annual_rent, monthly_rent, currency, bedrooms, bathrooms, area_sqft,
-                furnishing, status, availability, featured, agent_id, created_at, updated_at
+                furnishing, status, availability, featured, agent_id, properties.created_at, properties.updated_at,
+                (SELECT name FROM users u WHERE u.id = properties.agent_id) agent_name,
+                (SELECT email FROM users u WHERE u.id = properties.agent_id) agent_email,
+                (SELECT i.id FROM property_images i WHERE i.property_id = properties.id AND i.deleted_at IS NULL ORDER BY i.is_main DESC, i.position, i.id LIMIT 1) cover_image_id
          FROM properties WHERE ${cond.join(' AND ')} ORDER BY updated_at DESC LIMIT ? OFFSET ?`
       ).bind(...args, size, (page - 1) * size).all();
       return J({ properties: rows.results, total: total?.c ?? 0, page, size });
