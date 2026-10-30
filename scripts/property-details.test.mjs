@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { normalizeDetails, distanceMetres, SQFT_PER_SQM } from '../src/property-details.mjs';
+test('converts both units accurately',()=>{const b={area_sqft:1000};normalizeDetails(b);assert.equal(b.area_sqm,1000/SQFT_PER_SQM);const c={area_sqm:92.90304};normalizeDetails(c);assert.ok(Math.abs(c.area_sqft-1000)<1e-8)});
+test('rejects invalid dimensions and coordinates',()=>{for(const b of [{area_sqft:-1},{latitude:91},{longitude:181},{length_m:Infinity},{area_sqft:100,area_sqm:100}])assert.throws(()=>normalizeDetails(b))});
+test('accepts unknown fields as blank and confirmed details',()=>{assert.deepEqual(normalizeDetails({area_sqft:null}),{});assert.deepEqual(normalizeDetails({amenities:['Gym'],nearby_supermarkets:'Confirmed store'}),{amenities:['Gym'],nearby_supermarkets:'Confirmed store'})});
+test('rejects unsafe map URLs and malformed amenities',()=>{for(const b of [{map_url:'javascript:alert(1)'},{map_url:'https://example.com/maps'},{amenities:'Gym'}])assert.throws(()=>normalizeDetails(b))});
+test('create SQL has equal columns and placeholders',()=>{const source=readFileSync(new URL('../src/worker.ts',import.meta.url),'utf8');const m=source.match(/INSERT INTO properties \(([\s\S]*?)\)\s*VALUES \(([?,]+)\)/);assert.ok(m);assert.equal(m[1].split(',').length,m[2].split(',').length)});
+test('measurement sources and separate area types survive',()=>{const b={measurements:[{kind:'plot',unit:'sqm',value:100},{kind:'internal',unit:'sqft',value:500}]};const d=normalizeDetails(b);assert.equal(d.measurements[0].sqft,100*SQFT_PER_SQM);assert.equal(d.measurements[1].value,500);assert.throws(()=>normalizeDetails({measurements:[{kind:'plot',unit:'sqm',value:1},{kind:'plot',unit:'sqm',value:2}]}))});
+test('Haversine distances are labelled and unreviewed places cannot be public',()=>{assert.equal(distanceMetres({latitude:0,longitude:0},{latitude:0,longitude:0}),0);assert.ok(Math.abs(distanceMetres({latitude:0,longitude:0},{latitude:0,longitude:1})-111195)<2);const d=normalizeDetails({latitude:0,longitude:0,nearby_places:[{name:'Test fixture',category:'Supermarket',latitude:0,longitude:1,public:true}]});assert.equal(d.nearby_places[0].public,false);assert.equal(d.nearby_places[0].distance_method,'straight_line')});
+test('verification requires evidence',()=>assert.throws(()=>normalizeDetails({nearby_places:[{name:'Test fixture',category:'Mall',verified:true,public:true}]})));
+test('admin inline script parses',()=>{const html=readFileSync(new URL('../admin/index.html',import.meta.url),'utf8');new Function(html.match(/<script>([\s\S]*?)<\/script>/)[1])});

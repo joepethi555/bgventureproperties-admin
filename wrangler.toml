@@ -8,6 +8,7 @@ PUBLIC_SITE = "https://bg-venture-properties.pages.dev"
 
 [assets]
 directory = "./admin"
+binding = "ASSETS"
 
 [[d1_databases]]
 binding = "DB"
@@ -17,3 +18,7 @@ database_id = "f3f7bb78-d330-4057-ac0a-c93c38113296"
 # [[r2_buckets]]
 # binding = "MEDIA"
 # bucket_name = "bgv-admin-media"      # run: npx wrangler r2 bucket create bgv-admin-media
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "bgv-admin-media"

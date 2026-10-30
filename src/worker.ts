@@ -1,6 +1,10 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { normalizeDetails } from './property-details.mjs';
+import { handleMedia, imageResponse } from './media.mjs';
+
 export interface Env {
+  ASSETS: Fetcher;
   DB: D1Database;
   MEDIA?: R2Bucket;
   APP_NAME: string;
@@ -44,7 +48,8 @@ async function getSession(req: Request, env: Env) {
   const row = await env.DB.prepare(
     `SELECT s.id sid, s.expires_at, u.id, u.email, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND u.status = 'active'`
   ).bind(m[1]).first<Record<string, unknown>>();
-  if (!row || new Date(String(row.expires_at)) < new Date()) return null;
+  const expiry = row ? Date.parse(String(row.expires_at).replace(' ', 'T') + 'Z') : NaN;
+  if (!Number.isFinite(expiry) || expiry <= Date.now()) return null;
   return { sid: row.sid as string, user: { id: row.id, email: row.email, name: row.name, role: row.role } };
 }
 const CAN_PUBLISH = new Set(['super_admin', 'property_manager']);
@@ -71,6 +76,10 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname;
     const method = req.method;
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && path !== '/api/analytics/events') {
+      const origin = req.headers.get('origin');
+      if ((origin && origin !== url.origin) || req.headers.get('sec-fetch-site') === 'cross-site') return json({ error: 'Cross-site request rejected' }, 403);
+    }
 
     // Security headers
     const H = {
@@ -144,7 +153,7 @@ export default {
     // ── PUBLIC properties API (published only, public fields only) ──
     if (path === '/api/public/properties' && method === 'GET') {
       const p = new URL(req.url).searchParams;
-      const cond: string[] = ["status = 'published'", "availability != 'unavailable'"];
+      const cond: string[] = ["status = 'published'", "availability = 'available'"];
       const args: unknown[] = [];
       if (p.get('purpose')) { cond.push('listing_type = ?'); args.push(p.get('purpose') === 'rent' ? 'rent' : 'sale'); }
       if (p.get('category')) { cond.push('category = ?'); args.push(p.get('category')); }
@@ -155,10 +164,18 @@ export default {
       const rows = await env.DB.prepare(
         `SELECT id, ref, slug, title, listing_type, category, property_type, community, subcommunity, city, emirate,
                 bedrooms, bathrooms, area_sqft, furnishing, sale_price, annual_rent, monthly_rent, currency,
-                featured, view_type, parking, balcony
+                featured, view_type, parking, balcony,
+                (SELECT i.id FROM property_images i WHERE i.property_id=properties.id AND i.approved=1 AND i.deleted_at IS NULL ORDER BY i.is_main DESC,i.position,i.id LIMIT 1) cover_image_id
          FROM properties WHERE ${cond.join(' AND ')} ORDER BY featured DESC, id DESC LIMIT 100`
       ).bind(...args).all();
       return J({ properties: rows.results });
+    }
+
+    const publicImage = path.match(/^\/api\/public\/properties\/(\d+)\/media\/(\d+)$/);
+    if (publicImage && method === 'GET') {
+      const image = await env.DB.prepare("SELECT i.* FROM property_images i JOIN properties p ON p.id=i.property_id WHERE p.id=? AND i.id=? AND p.status='published' AND p.availability='available' AND i.approved=1 AND i.deleted_at IS NULL").bind(Number(publicImage[1]), Number(publicImage[2])).first();
+      if (!image) return J({ error: 'Not found' }, 404);
+      return imageResponse(env, image);
     }
 
     // ── everything below requires session ──
@@ -166,12 +183,15 @@ export default {
     if (!session) return J({ error: 'Authentication required' }, 401);
     const role = String(session.user.role);
     const me = Number(session.user.id);
+    const mediaRoute = path.match(/^\/api\/admin\/properties\/(\d+)\/media(?:\/(\d+))?$/);
+    if (mediaRoute) return handleMedia(req, env, session, Number(mediaRoute[1]), mediaRoute[2] ? Number(mediaRoute[2]) : null, J);
 
     // PROPERTIES list
     if (path === '/api/admin/properties' && method === 'GET') {
       if (!EDIT_ROLES.has(role) && role !== 'analytics_viewer') return J({ error: 'Forbidden' }, 403);
       const p = url.searchParams;
       const cond: string[] = ['1=1']; const args: unknown[] = [];
+      if (role === 'agent') { cond.push('agent_id = ?'); args.push(me); }
       for (const [k, col] of [['status','status'],['listing_type','listing_type'],['category','category'],['community','community'],['furnishing','furnishing'],['availability','availability']] as const)
         if (p.get(k)) { cond.push(`${col} = ?`); args.push(p.get(k)); }
       if (p.get('min_price')) { cond.push('(sale_price >= ? OR annual_rent >= ?)'); args.push(Number(p.get('min_price')), Number(p.get('min_price'))); }
@@ -198,7 +218,9 @@ export default {
       if (!['sale','rent','off_plan'].includes(String(b.listing_type))) return J({ error: 'Invalid listing_type' }, 400);
       for (const f of ['sale_price','annual_rent','monthly_rent','deposit','service_charges'])
         if (b[f] != null && Number(b[f]) < 0) return J({ error: `${f} cannot be negative` }, 400);
-      const ref = `BGV-${String(Date.now()).slice(-6)}`;
+      let details;
+      try { details = normalizeDetails(b); } catch (e) { return J({ error: (e as Error).message }, 400); }
+      const ref = `BGV-${uuid().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
       const slug = await uniqueSlug(env, slugify(String(b.title)));
       const r = await env.DB.prepare(
         `INSERT INTO properties (ref, slug, title, description, short_description, listing_type, category, property_type,
@@ -207,11 +229,11 @@ export default {
            currency, sale_price, annual_rent, monthly_rent, deposit, service_charges, pricing_notes,
            developer, project_name, expected_completion, payment_plan,
            owner_name, owner_phone, owner_email, internal_ref, internal_notes, agreement_ref,
-           agent_id, seo_title, seo_description, keywords, created_by)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+           agent_id, seo_title, seo_description, keywords, created_by, area_sqm, latitude, longitude, floor, details_json)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         ref, slug, b.title, b.description ?? null, b.short_description ?? null, b.listing_type, b.category, b.property_type,
-        b.status === 'published' && CAN_PUBLISH.has(role) ? 'published' : 'draft',
+        'draft',
         b.featured ? 1 : 0, b.availability ?? 'available', b.emirate ?? 'Dubai', b.city ?? null, b.community ?? null,
         b.subcommunity ?? null, b.building ?? null, b.street ?? null,
         b.bedrooms ?? null, b.bathrooms ?? null, b.area_sqft ?? null, b.furnishing ?? null,
@@ -221,7 +243,8 @@ export default {
         b.developer ?? null, b.project_name ?? null, b.expected_completion ?? null, b.payment_plan ?? null,
         b.owner_name ?? null, b.owner_phone ?? null, b.owner_email ?? null,
         b.internal_ref ?? null, b.internal_notes ?? null, b.agreement_ref ?? null,
-        b.agent_id ?? me, b.seo_title ?? null, b.seo_description ?? null, b.keywords ?? null, me
+        b.agent_id ?? me, b.seo_title ?? null, b.seo_description ?? null, b.keywords ?? null, me,
+        b.area_sqm ?? null, b.latitude ?? null, b.longitude ?? null, b.floor ?? null, JSON.stringify(details)
       ).run();
       await audit(env, me, 'property.create', 'property', ref, String(b.title), req);
       return J({ id: r.meta.last_row_id, ref, slug }, 201);
@@ -234,14 +257,23 @@ export default {
       const id = Number(mProp[1]); const action = mProp[2];
       const prop = await env.DB.prepare('SELECT * FROM properties WHERE id = ?').bind(id).first<Record<string, unknown>>();
       if (!prop) return J({ error: 'Not found' }, 404);
+      if (role === 'agent' && Number(prop.agent_id) !== me) return J({ error: 'Forbidden' }, 403);
+      if (action && !WRITE_ROLES.has(role)) return J({ error: 'Forbidden' }, 403);
       if (!action && method === 'GET') {
         const images = await env.DB.prepare('SELECT * FROM property_images WHERE property_id = ? ORDER BY position').bind(id).all();
-        return J({ property: prop, images: images.results });
+        return J({ property: role === 'agent' ? publicProperty(prop) : prop, images: images.results });
       }
       if (!action && method === 'PATCH') {
         const b = await req.json().catch(() => ({})) as Record<string, unknown>;
         const allowed = ['title','description','short_description','listing_type','category','property_type','featured','availability','emirate','city','community','subcommunity','building','street','bedrooms','bathrooms','area_sqft','furnishing','parking','balcony','view_type','completion','currency','sale_price','annual_rent','monthly_rent','deposit','service_charges','pricing_notes','developer','project_name','expected_completion','payment_plan','owner_name','owner_phone','owner_email','internal_ref','internal_notes','agreement_ref','agent_id','seo_title','seo_description','keywords'];
+        let details;
+        try { details = normalizeDetails(b); } catch (e) { return J({ error: (e as Error).message }, 400); }
+        allowed.push('area_sqm', 'latitude', 'longitude', 'floor');
+        if (role === 'agent') {
+          for (const k of [...PRIVATE_KEYS, 'agent_id']) if (k in b) return J({ error: 'Restricted field' }, 403);
+        }
         const sets: string[] = []; const args: unknown[] = [];
+        if (Object.keys(details).length) { sets.push('details_json = ?'); args.push(JSON.stringify({ ...JSON.parse(String(prop.details_json || '{}')), ...details })); }
         for (const k of allowed) if (k in b) { sets.push(`${k} = ?`); args.push(b[k]); }
         if (!sets.length) return J({ error: 'Nothing to update' }, 400);
         await env.DB.prepare(`UPDATE properties SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`).bind(...args, id).run();
@@ -263,10 +295,11 @@ export default {
         return J({ ok: true });
       }
       if (action === 'duplicate' && method === 'POST') {
-        const newRef = `BGV-${String(Date.now()).slice(-6)}`;
+        const newRef = `BGV-${uuid().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
         const slug = await uniqueSlug(env, `${prop.slug}-copy`);
         const cols = 'slug,title,description,short_description,listing_type,category,property_type,availability,emirate,city,community,subcommunity,building,street,bedrooms,bathrooms,area_sqft,furnishing,parking,balcony,view_type,completion,currency,sale_price,annual_rent,monthly_rent,deposit,service_charges,pricing_notes,developer,project_name,expected_completion,payment_plan,owner_name,owner_phone,owner_email,internal_ref,internal_notes,agreement_ref,agent_id,seo_title,seo_description,keywords';
-        await env.DB.prepare(`INSERT INTO properties (ref,${cols},status,created_by) SELECT ?,${cols},'draft',${me} FROM properties WHERE id = ?`).bind(newRef, slug, id).run();
+        const copyColumns = `${cols},area_sqm,latitude,longitude,floor,details_json`;
+        await env.DB.prepare(`INSERT INTO properties (ref,${copyColumns},status,created_by) SELECT ?,?,${copyColumns.split(',').slice(1).join(',')},'draft',? FROM properties WHERE id = ?`).bind(newRef, slug, me, id).run();
         await audit(env, me, 'property.duplicate', 'property', String(id), '', req);
         return J({ ok: true, ref: newRef });
       }
@@ -306,14 +339,20 @@ export default {
 
     // INQUIRIES
     if (path === '/api/admin/inquiries' && method === 'GET') {
+      if (!CAN_PUBLISH.has(role) && role !== 'agent') return J({ error: 'Forbidden' }, 403);
       const rows = await env.DB.prepare(
         `SELECT i.*, p.title property_title, p.ref property_ref FROM inquiries i
-         LEFT JOIN properties p ON p.id = i.property_id ORDER BY i.id DESC LIMIT 200`).all();
+         LEFT JOIN properties p ON p.id = i.property_id WHERE (? = 0 OR i.assigned_agent = ?) ORDER BY i.id DESC LIMIT 200`).bind(role === 'agent' ? 1 : 0, me).all();
       return J({ inquiries: rows.results });
     }
     const mInq = path.match(/^\/api\/admin\/inquiries\/(\d+)$/);
     if (mInq && method === 'PATCH') {
+      if (!CAN_PUBLISH.has(role) && role !== 'agent') return J({ error: 'Forbidden' }, 403);
+      const inquiry = await env.DB.prepare('SELECT assigned_agent FROM inquiries WHERE id = ?').bind(Number(mInq[1])).first<{ assigned_agent: number }>();
+      if (!inquiry) return J({ error: 'Not found' }, 404);
+      if (role === 'agent' && inquiry.assigned_agent !== me) return J({ error: 'Forbidden' }, 403);
       const b = await req.json().catch(() => ({})) as Record<string, unknown>;
+      if (role === 'agent' && 'assigned_agent' in b) return J({ error: 'Forbidden' }, 403);
       if (b.status && !['new','contacted','follow_up','qualified','closed','spam'].includes(String(b.status)))
         return J({ error: 'Invalid status' }, 400);
       const sets: string[] = []; const args: unknown[] = [];

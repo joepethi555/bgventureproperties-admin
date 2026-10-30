@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 -- Default amenity options (admin can manage later)
 INSERT OR IGNORE INTO amenities (name) VALUES
  ('Swimming Pool'),('Gym'),('Covered Parking'),('Balcony'),('Built-In Wardrobes'),
- ('Central Air Conditioning'),('Security'),('Concierge'),("Children's Play Area"),
+ ('Central Air Conditioning'),('Security'),('Concierge'),('Children''s Play Area'),
  ('Garden'),('Private Garden'),('Private Pool'),('Sea View'),('City View'),
  ('Community View'),('Furnished'),('Kitchen Appliances'),('Public Transport Access'),
  ('Nearby Schools'),('Nearby Shopping'),('Nearby Healthcare');

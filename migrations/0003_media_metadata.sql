@@ -1,0 +1,13 @@
+ALTER TABLE property_images ADD COLUMN original_filename TEXT;
+ALTER TABLE property_images ADD COLUMN mime_type TEXT;
+ALTER TABLE property_images ADD COLUMN file_size INTEGER;
+ALTER TABLE property_images ADD COLUMN width INTEGER;
+ALTER TABLE property_images ADD COLUMN height INTEGER;
+ALTER TABLE property_images ADD COLUMN sha256 TEXT;
+ALTER TABLE property_images ADD COLUMN image_category TEXT NOT NULL DEFAULT 'Other';
+ALTER TABLE property_images ADD COLUMN approved INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE property_images ADD COLUMN deleted_at TEXT;
+ALTER TABLE property_images ADD COLUMN uploaded_by INTEGER REFERENCES users(id);
+CREATE INDEX IF NOT EXISTS idx_media_property_order ON property_images(property_id, deleted_at, position);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_property_hash ON property_images(property_id, sha256) WHERE deleted_at IS NULL AND sha256 IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_media_cover ON property_images(property_id) WHERE is_main = 1 AND deleted_at IS NULL;

@@ -34,6 +34,8 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
 #formView{background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px;max-width:820px}
 #formView h3{font:18px Georgia,serif;margin-bottom:18px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
 .view{display:none}.view.on{display:block}
+.property-section{border:1px solid var(--line);border-radius:10px;padding:20px;margin:22px 0;min-width:0}.property-section legend{padding:0 8px;font:18px Georgia,serif}.property-section p{color:var(--muted);font-size:12px;margin-bottom:16px}.property-section label{display:block;font-size:12px;font-weight:600;min-width:0}.property-section input,.property-section select,.property-section textarea{margin-top:6px;font-weight:400}.amenity-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}.amenity-options label{display:flex;align-items:center;gap:8px}.amenity-options input{width:auto;margin:0}
+@media(max-width:560px){.grid2,.amenity-options{grid-template-columns:minmax(0,1fr)}#formView{padding:18px}.property-section{padding:14px}}
 @media(max-width:800px){.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:10px}.sidebar img{width:50px;margin:0 10px}.sidebar .foot{display:none}.main{margin-left:0;padding:16px}}
 </style>
 </head>
@@ -70,6 +72,8 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
     <section class="view" id="v-newprop">
       <form id="propForm">
         <div id="formView"><h3>New property</h3>
+          <button type="button" class="ghost" id="useCandace">Use Candace Aster details</button>
+          <p id="templateStatus" role="status" style="margin:12px 0;color:var(--muted);font-size:12px">Optional: load the supplied studio details, then review before saving. No price or private documents included.</p>
           <div class="grid2">
             <div><input name="title" placeholder="Property title *" required>
             <select name="listing_type" required><option value="">Listing type *</option><option value="sale">For Sale</option><option value="rent">For Rent</option><option value="off_plan">Off-Plan</option></select>
@@ -84,10 +88,58 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
             <input name="annual_rent" type="number" min="0" placeholder="Annual rent (AED)"></div>
           </div>
           <textarea name="description" rows="3" placeholder="Listing description"></textarea>
+          <fieldset class="property-section"><legend>Dimensions & specifications</legend>
+            <p>Enter a measured area in either unit. The other unit is converted automatically. Leave unknown details blank.</p>
+            <label>Primary area type<select name="area_kind"><option value="other">Other / unspecified total area</option><option value="built_up">Built-up area</option><option value="plot">Plot area</option><option value="internal">Internal area</option><option value="balcony">Balcony area</option></select></label>
+            <div class="grid2">
+              <label>Area (sq ft)<input name="area_sqft" type="number" min="0" step="any"></label>
+              <label>Area (sq m)<input name="area_sqm" type="number" min="0" step="any"></label>
+              <label>Plot area (sqm, optional)<input data-area="plot" type="number" min="0" step="any"></label>
+              <label>Internal area (sqm, optional)<input data-area="internal" type="number" min="0" step="any"></label>
+              <label>Balcony area (sqm, optional)<input data-area="balcony" type="number" min="0" step="any"></label>
+              <label>Built-up area (sqm, optional)<input data-area="built_up" type="number" min="0" step="any"></label>
+              <label>Length (metres)<input name="length_m" type="number" min="0" step="any"></label>
+              <label>Width (metres)<input name="width_m" type="number" min="0" step="any"></label>
+              <label>Floor number<input name="floor" maxlength="30"></label>
+              <label>Parking spaces<input name="parking" type="number" min="0" step="1"></label>
+              <label>Furnishing<select name="furnishing"><option value="">Unknown</option><option>Furnished</option><option>Partly furnished</option><option>Unfurnished</option></select></label>
+              <label>View<input name="view_type" maxlength="150" placeholder="Only confirmed views"></label>
+            </div>
+          </fieldset>
+          <fieldset class="property-section"><legend>Location & nearby facilities</legend>
+            <div class="grid2">
+              <label>City<input name="city" maxlength="100"></label>
+              <label>Street / public address<input name="street" maxlength="300"></label>
+              <label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any"></label>
+              <label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any"></label>
+            </div>
+            <label>Google Maps link<input name="map_url" type="url" placeholder="Paste the confirmed building or property location"></label>
+            <label>Nearby supermarkets<textarea name="nearby_supermarkets" maxlength="2000" rows="3" placeholder="One verified supermarket per line; include distance only if confirmed"></textarea></label>
+            <label>Other nearby facilities<textarea name="nearby_facilities" maxlength="2000" rows="3" placeholder="Confirmed metro stations, schools, clinics, etc."></textarea></label>
+          </fieldset>
+          <fieldset class="property-section"><legend>Verified nearby places</legend>
+            <p>Automatic lookup is not configured. Add places manually. Only reviewed places with a source and verification date can be approved for public display. Distances are calculated as straight-line distances when both coordinate pairs are supplied.</p>
+            <div id="nearbyPlaces"></div>
+            <button type="button" class="ghost" id="addNearby">Add nearby place</button>
+          </fieldset>
+          <fieldset class="property-section"><legend>Building amenities</legend>
+            <p>Select only amenities confirmed for this property or building.</p>
+            <div class="amenity-options" id="amenityOptions"></div>
+          </fieldset>
           <div class="err" id="perr"></div>
           <button type="submit">SAVE AS DRAFT</button>
         </div>
       </form>
+    </section>
+    <section class="view" id="v-media">
+      <h3>Property photographs</h3>
+      <p>JPEG or PNG, up to 10 MB each. Uploads stay private until a publisher approves the image and publishes the property.</p>
+      <div id="mediaDrop" style="padding:24px;border:2px dashed var(--line);border-radius:12px;margin:18px 0">
+        <label>Choose photographs or drop them here<input type="file" id="mediaFiles" accept="image/jpeg,image/png" multiple></label>
+      </div>
+      <p id="mediaStatus" role="status"></p>
+      <div id="uploadQueue"></div>
+      <div id="mediaGallery" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:18px;margin-top:20px"></div>
     </section>
     <section class="view" id="v-panalytics"><div id="panTable"></div></section>
     <section class="view" id="v-inq"><div id="inqTable"></div></section>
@@ -96,21 +148,56 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
 </div>
 <script>
 const $=s=>document.querySelector(s);let ME=null;
-async function api(p,m='GET',b){const r=await fetch('/api'+p,{method:m,headers:b?{'content-type':'application/json'}:{},body:b?JSON.stringify(b):null});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Error');return d}
+async function api(p,m='GET',b){const r=await fetch('/api'+p,{method:m,headers:b?{'content-type':'application/json'}:{},body:b?JSON.stringify(b):null});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Error');for(const key of ['properties','inquiries','users'])if(Array.isArray(d[key]))d[key]=d[key].map(row=>Object.fromEntries(Object.entries(row).map(([k,v])=>[k,typeof v==='string'?v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])):v])));return d}
 function err(m){const e=$('#err');e.textContent=m;e.style.display='block'}
 $('#loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/auth/login','POST',{email:$('#email').value,password:$('#password').value});ME=d.user;show()}catch(x){err(x.message)}};
 $('#logout').onclick=async e=>{e.preventDefault();await api('/auth/logout','POST').catch(()=>{});location.reload()};
 function show(){$('#loginView').style.display='none';$('#app').style.display='block';$('#uname').textContent=ME.email;$('#who').textContent=ME.name+' · '+ME.role;if(ME.role==='super_admin')$('#navUsers').style.display='block';dash();props();pan();inq();users()}
 document.querySelectorAll('.sidebar a[data-v]').forEach(a=>a.onclick=e=>{e.preventDefault();document.querySelectorAll('.sidebar a').forEach(x=>x.classList.remove('on'));a.classList.add('on');document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));$('#v-'+a.dataset.v).classList.add('on');$('#vtitle').textContent=a.textContent});
 async function dash(){const d=await api('/admin/analytics/overview');const i=d.inventory||{},a=d.analytics||{};$('#cards').innerHTML=[['Total properties',i.total],['Published',i.published],['Drafts',i.drafts],['For sale',i.for_sale],['For rent',i.for_rent],['Available',i.available],['Archived',i.archived],['Page views ('+d.period_days+'d)',a.page_views],['Property views',a.property_views],['WhatsApp clicks',a.whatsapp],['Phone clicks',a.phone],['Form submissions',a.inquiries]].map(([k,v])=>`<div class="card"><span>${k}</span><strong>${v??0}</strong></div>`).join('')}
-async function props(){const q=$('#pq').value;const d=await api('/admin/properties'+(q?'?q='+encodeURIComponent(q):''));$('#ptable').innerHTML=`<table><tr><th>Ref</th><th>Title</th><th>Type</th><th>Community</th><th>Price</th><th>Status</th><th>Actions</th></tr>${d.properties.map(p=>`<tr><td>${p.ref}</td><td>${p.title}</td><td>${p.listing_type}</td><td>${p.community||'—'}</td><td>${p.sale_price||p.annual_rent||'—'}</td><td><span class="badge ${p.status}">${p.status}</span></td><td>${p.status!=='published'?`<button class="btn-sm" onclick="act(${p.id},'publish')">Publish</button>`:`<button class="btn-sm ghost" onclick="act(${p.id},'archive')">Archive</button>`}<button class="btn-sm ghost" onclick="act(${p.id},'duplicate')">Duplicate</button></td></tr>`).join('')}</table>`}
+async function props(){const q=$('#pq').value;const d=await api('/admin/properties'+(q?'?q='+encodeURIComponent(q):''));$('#ptable').innerHTML=`<table><tr><th>Ref</th><th>Title</th><th>Type</th><th>Community</th><th>Price</th><th>Status</th><th>Actions</th></tr>${d.properties.map(p=>`<tr><td>${p.ref}</td><td>${p.title}</td><td>${p.listing_type}</td><td>${p.community||'—'}</td><td>${p.sale_price||p.annual_rent||'—'}</td><td><span class="badge ${p.status}">${p.status}</span></td><td>${p.status!=='published'?`<button class="btn-sm" onclick="act(${p.id},'publish')">Publish</button>`:`<button class="btn-sm ghost" onclick="act(${p.id},'archive')">Archive</button>`}<button class="btn-sm ghost" onclick="editProperty(${p.id})">Edit</button><button class="btn-sm ghost" onclick="openMedia(${p.id})">Images</button><button class="btn-sm ghost" onclick="act(${p.id},'duplicate')">Duplicate</button></td></tr>`).join('')}</table>`}
 $('#pq').oninput=()=>{clearTimeout(window._t);window._t=setTimeout(props,300)};
 window.act=async(id,a)=>{try{await api('/admin/properties/'+id+'/'+a,'POST');props();dash()}catch(x){alert(x.message)}};
-$('#propForm').onsubmit=async e=>{e.preventDefault();const b=Object.fromEntries(new FormData(e.target));['sale_price','annual_rent'].forEach(k=>b[k]=b[k]?+b[k]:null);try{await api('/admin/properties','POST',b);e.target.reset();alert('Saved as draft');props();dash()}catch(x){$('#perr').textContent=x.message;$('#perr').style.display='block'}};
+const amenityNames=['Swimming Pool','Gym','Covered Parking','Balcony','Security','Concierge',"Children’s Play Area",'Central Air Conditioning','Built-In Wardrobes','Garden','Kitchen Appliances'];
+for(const name of amenityNames){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='amenities';input.value=name;label.append(input,document.createTextNode(name));$('#amenityOptions').append(label)}
+let originalArea=null,editingProperty=null;
+window.editProperty=async id=>{
+ try{
+  const {property:p}=await api('/admin/properties/'+id);const details=JSON.parse(p.details_json||'{}');
+  propertyForm.reset();$('#nearbyPlaces').replaceChildren();originalArea=null;
+  for(const [key,value] of Object.entries({...p,...details}))if(propertyForm.elements[key]&&key!=='amenities')propertyForm.elements[key].value=value??'';
+  const measurements=details.measurements||[];const primary=measurements.find(m=>m.kind==='other')||measurements[0];
+  if(primary){propertyForm.elements.area_kind.value=primary.kind;originalArea={unit:primary.unit,value:primary.value}}
+  else if(p.area_sqft!=null)originalArea={unit:'sqft',value:p.area_sqft};
+  for(const input of propertyForm.querySelectorAll('[data-area]')){const m=measurements.find(m=>m.kind===input.dataset.area&&m!==primary);input.value=m?m.sqm:''}
+  for(const input of propertyForm.querySelectorAll('[name="amenities"]'))input.checked=(details.amenities||[]).includes(input.value);
+  for(const place of details.nearby_places||[]){$('#addNearby').click();const row=$('#nearbyPlaces').lastElementChild;for(const input of row.querySelectorAll('[data-place]')){if(input.type==='checkbox')input.checked=place[input.dataset.place]===true;else input.value=place[input.dataset.place]??''}}
+  editingProperty=id;document.querySelector('[data-v="newprop"]').click();$('#formView h3').textContent='Edit property';$('#propForm button[type="submit"]').textContent='SAVE CHANGES';
+ }catch(e){alert(e.message)}
+};
+$('#addNearby').onclick=()=>{
+ const row=document.createElement('fieldset');row.className='property-section nearby-row';
+ row.innerHTML='<legend>Nearby place</legend><div class="grid2"><label>Place name<input data-place="name" required maxlength="200"></label><label>Category<select data-place="category"><option>Supermarket</option><option>Grocery store</option><option>Shopping mall</option><option>Pharmacy</option><option>Clinic</option><option>Hospital</option><option>School</option><option>Nursery</option><option>Park</option><option>Metro station</option><option>Bus stop</option><option>Restaurant</option><option>Cafe</option><option>Fitness centre</option><option>Other</option></select></label><label>Latitude<input data-place="latitude" type="number" step="any" min="-90" max="90"></label><label>Longitude<input data-place="longitude" type="number" step="any" min="-180" max="180"></label><label>Source / reference<input data-place="source" maxlength="500"></label><label>Last verified<input data-place="verified_at" type="date"></label></div><label><input data-place="verified" type="checkbox" style="width:auto"> Reviewed and verified</label><label><input data-place="public" type="checkbox" style="width:auto"> Approve for public display</label><button type="button" class="ghost">Remove place</button>';
+ row.querySelector('button').onclick=()=>row.remove();$('#nearbyPlaces').append(row);
+};
+const propertyForm=$('#propForm');
+$('#useCandace').onclick=()=>{
+  if([...new FormData(propertyForm).values()].some(v=>String(v).trim())&&!confirm('Replace the current form with the supplied Candace Aster details?'))return;
+  propertyForm.reset();$('#nearbyPlaces').replaceChildren();originalArea=null;editingProperty=null;$('#formView h3').textContent='New property';$('#propForm button[type="submit"]').textContent='SAVE AS DRAFT';
+  const details={title:'Fully Furnished Studio with Balcony | Candace Aster, Al Furjan',listing_type:'sale',category:'Residential',property_type:'Apartment',community:'Al Furjan',building:'Candace Aster Hotel Apartments',city:'Dubai',bedrooms:'Studio',bathrooms:'1',area_sqft:'502.46',furnishing:'Furnished',view_type:'Community view',description:'BG Venture Properties presents this fully furnished studio apartment for sale in Candace Aster, Al Furjan, Dubai. The apartment features a modern layout, a private balcony with community views, built-in wardrobes, an equipped kitchen with appliances, and central air conditioning. Building amenities include a swimming pool and a fully equipped gym.'};
+  for(const [key,value] of Object.entries(details))propertyForm.elements[key].value=value;
+  propertyForm.elements.area_sqft.dispatchEvent(new Event('input'));
+  for(const input of propertyForm.querySelectorAll('[name="amenities"]'))input.checked=['Swimming Pool','Gym','Balcony','Central Air Conditioning','Built-In Wardrobes','Kitchen Appliances'].includes(input.value);
+  $('#perr').style.display='none';
+  $('#templateStatus').textContent='Details loaded—not saved. Reconfirm availability before publishing. Map, nearby facilities, price, and unverified dimensions remain blank.';
+};
+for(const unit of ['sqft','sqm'])propertyForm.elements['area_'+unit].oninput=e=>{const value=e.target.value;originalArea=value===''?null:{unit,value:Number(value)};propertyForm.elements['area_'+(unit==='sqft'?'sqm':'sqft')].value=value===''?'':Number((unit==='sqft'?Number(value)/10.7639104167:Number(value)*10.7639104167).toFixed(6))};
+$('#propForm').onsubmit=async e=>{e.preventDefault();const data=new FormData(e.target);const b=Object.fromEntries(data);b.amenities=data.getAll('amenities');b.measurements=originalArea?[{kind:b.area_kind,...originalArea}]:[];for(const input of propertyForm.querySelectorAll('[data-area]'))if(input.value!=='')b.measurements.push({kind:input.dataset.area,unit:'sqm',value:Number(input.value)});b.nearby_places=[...document.querySelectorAll('.nearby-row')].map(row=>Object.fromEntries([...row.querySelectorAll('[data-place]')].map(input=>[input.dataset.place,input.type==='checkbox'?input.checked:input.type==='number'?(input.value===''?null:Number(input.value)):input.value])));['sale_price','annual_rent','area_sqft','area_sqm','length_m','width_m','latitude','longitude','parking'].forEach(k=>b[k]=b[k]!==''?Number(b[k]):null);try{await api('/admin/properties'+(editingProperty?'/'+editingProperty:''),editingProperty?'PATCH':'POST',b);e.target.reset();$('#nearbyPlaces').replaceChildren();editingProperty=null;originalArea=null;$('#formView h3').textContent='New property';$('#propForm button[type="submit"]').textContent='SAVE AS DRAFT';alert('Property saved');props();dash()}catch(x){$('#perr').textContent=x.message;$('#perr').style.display='block'}};
 async function pan(){const d=await api('/admin/analytics/properties');$('#panTable').innerHTML=`<table><tr><th>Property</th><th>Views</th><th>Impressions</th><th>Clicks</th><th>CTR</th><th>WhatsApp</th><th>Phone</th><th>Email</th><th>Inquiries</th></tr>${d.properties.map(p=>`<tr><td>${p.title}<br><small>${p.ref}</small></td><td>${p.views||0}</td><td>${p.impressions||0}</td><td>${p.clicks||0}</td><td>${p.impressions?((p.clicks||0)/p.impressions*100).toFixed(1)+'%':'—'}</td><td>${p.whatsapp||0}</td><td>${p.phone||0}</td><td>${p.email||0}</td><td>${p.inquiries||0}</td></tr>`).join('')}</table>`}
 async function inq(){const d=await api('/admin/inquiries');$('#inqTable').innerHTML=d.inquiries.length?`<table><tr><th>Ref</th><th>Property</th><th>Name</th><th>Contact</th><th>Source</th><th>Status</th><th>Date</th></tr>${d.inquiries.map(i=>`<tr><td>${i.ref}</td><td>${i.property_title||'General'}</td><td>${i.name||'—'}</td><td>${i.email||i.phone||'—'}</td><td>${i.source}</td><td><span class="badge draft">${i.status}</span></td><td>${i.created_at}</td></tr>`).join('')}</table>`:'<p style="color:var(--muted)">No inquiries yet.</p>'}
 async function users(){if(ME.role!=='super_admin')return;const d=await api('/admin/users');$('#uTable').innerHTML=`<table><tr><th>Email</th><th>Name</th><th>Role</th><th>Last login</th></tr>${d.users.map(u=>`<tr><td>${u.email}</td><td>${u.name}</td><td>${u.role}</td><td>${u.last_login||'—'}</td></tr>`).join('')}</table>`}
 (async()=>{try{const d=await api('/auth/session');ME=d.user;show()}catch{}})();
 </script>
+<script src="/media.js" defer></script>
 </body>
 </html>
