@@ -1,0 +1,19 @@
+name = "bgv-admin"
+main = "src/worker.ts"
+compatibility_date = "2025-10-01"
+
+[vars]
+APP_NAME = "BG Venture Properties Admin"
+PUBLIC_SITE = "https://bg-venture-properties.pages.dev"
+
+[assets]
+directory = "./admin"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bgv-admin"
+database_id = "REPLACE_WITH_D1_ID"   # run: npx wrangler d1 create bgv-admin
+
+# [[r2_buckets]]
+# binding = "MEDIA"
+# bucket_name = "bgv-admin-media"      # run: npx wrangler r2 bucket create bgv-admin-media

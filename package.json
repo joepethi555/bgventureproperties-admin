@@ -1,0 +1,20 @@
+{
+  "name": "bgventureproperties-admin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "d1:create": "wrangler d1 create bgv-admin",
+    "d1:local": "wrangler d1 execute bgv-admin --local --file=migrations/0001_init.sql",
+    "d1:remote": "wrangler d1 execute bgv-admin --remote --file=migrations/0001_init.sql",
+    "seed:admin": "node scripts/create-admin.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0",
+    "@cloudflare/workers-types": "^4.20241112.0"
+  }
+}
