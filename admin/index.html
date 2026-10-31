@@ -58,6 +58,7 @@ td{padding:12px;border-top:1px solid #eee}tr:hover td{background:#faf9f5}
 .pill-draft{background:#f0f0f0;color:#666}
 .pill-pending{background:#fdf3d7;color:#8a6a14}
 .pill-archived{background:#fde8e8;color:#9c3434}
+.p-photos{display:inline-block;font-size:10px;color:var(--gold-dark);margin-top:3px;font-weight:600}
 .furn{display:inline-block;background:#f1efe9;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:10px;font-weight:600;color:#6d6552}
 .agent{display:flex;align-items:center;gap:8px}
 .avatar{width:26px;height:26px;border-radius:50%;background:var(--dark);color:var(--gold);display:inline-grid;place-items:center;font-size:11px;font-weight:700;flex:none}
@@ -230,7 +231,7 @@ async function props(){
   d.properties.map(p=>{const specs=[p.bedrooms?(p.bedrooms==='Studio'?'Studio':`${p.bedrooms} BR`):null,p.bathrooms?`${p.bathrooms} BA`:null,p.area_sqft?`${Number(p.area_sqft).toLocaleString('en-US')} sqft`:null].filter(Boolean).join(' • ');
    const agent=p.agent_name?`<span class="agent"><span class="avatar">${esc(String(p.agent_name).trim()[0]||'?')}</span><span class="agent-name">${esc(p.agent_name)}</span></span>`:'—';
    const menu=[['Edit listing',`editProperty(${p.id})`],['Manage images',`openMedia(${p.id})`],['Duplicate',`act(${p.id},'duplicate')`],p.status==='published'?['Unpublish → archive',`act(${p.id},'archive')`]:p.status==='archived'?['Restore to draft',`act(${p.id},'restore')`]:['Publish',`act(${p.id},'publish')`]].map(([l,f])=>`<button type="button" onclick="this.closest('details').removeAttribute('open');${f}">${l}</button>`).join('');
-   return `<tr><td><div class="p-cell">${p.cover_image_id?`<img class="p-thumb" src="/api/admin/properties/${p.id}/media/${p.cover_image_id}" alt="" loading="lazy">`:`<span class="p-thumb p-thumb-empty"></span>`}<div><a class="p-title" href="#" onclick="editProperty(${p.id});return false">${esc(p.title)}</a><div class="p-sub">Ref: ${esc(p.ref)}</div><div class="p-sub">${specs||'—'}</div></div></div></td>
+   return `<tr><td><div class="p-cell">${p.cover_image_id?`<img class="p-thumb" src="/api/admin/properties/${p.id}/media/${p.cover_image_id}" alt="" loading="lazy">`:`<span class="p-thumb p-thumb-empty"></span>`}<div><a class="p-title" href="#" onclick="editProperty(${p.id});return false">${esc(p.title)}</a><div class="p-sub">Ref: ${esc(p.ref)}</div><div class="p-sub">${specs||'—'}</div><a class="p-photos" href="#" onclick="openMedia(${p.id});return false">${p.image_count||0} photo(s)</a></div></div></td>
    <td>${pill(p.status)}</td>
    <td><strong>${esc(p.property_type)}</strong><div class="p-sub">${esc(p.category)} • ${purposeLabel(p.listing_type)}</div></td>
    <td>${p.furnishing?`<span class="furn">${esc(p.furnishing)}</span>`:'—'}</td>

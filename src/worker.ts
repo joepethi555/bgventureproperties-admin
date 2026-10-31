@@ -249,7 +249,8 @@ export default {
                 furnishing, status, availability, featured, agent_id, properties.created_at, properties.updated_at,
                 (SELECT name FROM users u WHERE u.id = properties.agent_id) agent_name,
                 (SELECT email FROM users u WHERE u.id = properties.agent_id) agent_email,
-                (SELECT i.id FROM property_images i WHERE i.property_id = properties.id AND i.deleted_at IS NULL ORDER BY i.is_main DESC, i.position, i.id LIMIT 1) cover_image_id
+                (SELECT i.id FROM property_images i WHERE i.property_id = properties.id AND i.deleted_at IS NULL ORDER BY i.is_main DESC, i.position, i.id LIMIT 1) cover_image_id,
+                (SELECT COUNT(*) FROM property_images i WHERE i.property_id = properties.id AND i.deleted_at IS NULL) image_count
          FROM properties WHERE ${cond.join(' AND ')} ORDER BY updated_at DESC LIMIT ? OFFSET ?`
       ).bind(...args, size, (page - 1) * size).all();
       return J({ properties: rows.results, total: total?.c ?? 0, page, size });
